@@ -1,3 +1,3 @@
-This is a bare min example a django single page visits.
-There is a get call and post (for importing visit through files)
-The pytests is the projet name and example is the app containig all the essentail requirments.
+This is a bare minimum example of Django single-page visits.
+There is a get call and post (for importing visits through files)
+The pytests is the project name and the example is the app containing all the essential requirements.
