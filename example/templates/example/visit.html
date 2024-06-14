@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block content %}
+    <h3 class="py-2">{% trans "Visit" %}</h3>
+    <div class="d-flex justify-content-end my-4">
+        <button class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#importModal">{% trans "Import" %}</button>
+    </div>
+    {% if messages %}
+        <div class="alert alert-danger" role="alert">
+            {% for message in messages %}{{ message }}{% endfor %}
+        </div>
+    {% endif %}
+    <div class="my-2">
+        <form method="get" action="{% url 'visit' %}">
+            <div class="row g-3 align-items-start">
+                <div class="form-group col-auto">
+                    <label for="id" class="col-form-label">{% trans "ID" %}</label>
+                    <div class="d-inline-flex">{{ form.visit_number }}</div>
+                </div>
+                <div class="form-group col-auto">
+                    <label for="status" class="col-form-label">{% trans "Status" %}</label>
+                    <div class="d-inline-flex">{{ form.status }}</div>
+                </div>
+                <div class="form-group col-auto">
+                    <label for="id" class="col-form-label">{% trans "Name" %}</label>
+                    <div class="d-inline-flex">{{ form.name }}</div>
+                </div>
+                <div class="form-group col-auto">
+                    <label for="status" class="col-form-label">{% trans "Location" %}</label>
+                    <div class="d-inline-flex">{{ form.source }}</div>
+                </div>
+                <div class="form-group col-auto">
+                    <label for="status" class="col-form-label">{% trans "Import Ref." %}</label>
+                    <div class="d-inline-flex">{{ form.import_file }}</div>
+                </div>
+                <div class="col-auto align-self-end">
+                    <button type="submit" class="btn btn-primary">{% trans "Filter" %}</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <table class="table table-hover table-borderless" id="procedure-table">
+        <thead>
+            <tr class="bg-light">
+                <th>
+                    <input type="checkbox" id="select-all">
+                </th>
+                <th>{% trans "Source" %}</th>
+                <th>{% trans "# Visit" %}</th>
+                <th>{% trans "Date" %}</th>
+                <th>{% trans "Name" %}</th>
+                <th class="col">
+                    <div>{% trans "Practitioner" %}</div>
+                    <div class="fst-italic fw-normal text-muted">{% trans "Replacing" %}</div>
+                </th>
+                <th class="col">
+                    <div>{% trans "Total" %}</div>
+                    <div class="fst-italic fw-normal text-muted">
+                        <i class="fa-light fa-triangle"></i> {% trans "Importd" %}
+                    </div>
+                </th>
+                <th>{% trans "Procedures" %}</th>
+                <th>{% trans "Status" %}</th>
+                <th>{% trans "Import ref." %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for visit in page_obj.object_list %}
+                <tr class="py-6">
+                    <td>
+                        <input type="checkbox"
+                               class="row-checkbox"
+                               value="{{ visit.pk }}"
+                               data-price-delta="{{ visit.price_delta }}"
+                               data-catalog-price="{{ visit.catalog_price }}">
+                    </td>
+                    <td>
+                        <div class="px-2 py-1 rounded-circle bg-secondary text-white d-inline">{{ visit.source | slice:":1" }}</div>
+                    </td>
+                    <td>
+                        {{ visit.visit_number }}
+                        <a href="{% url '' %}">
+                            <i class="fas fa-edit" style="color: #000000;"></i>
+                        </a>
+                    </td>
+                    <td>{{ visit.visit_date | date:"d/m/Y" }}</td>
+                    <td>{{ visit.name }}</td>
+                    <td class="col">
+                        <div>
+                            {{ visit.practitioner__user__first_name|default_if_none:"" }} {{ visit.practitioner__user__last_name|default_if_none:"" }}
+                        </div>
+                        <div>
+                            {{ visit.sub_practitioner__user__first_name|default_if_none:"" }} {{ visit.sub_practitioner__user__last_name|default_if_none:"" }}
+                        </div>
+                    </td>
+                    <td class="col">
+                        <div class="catalog-price">{{ visit.catalog_price }}</div>
+                        <div class-="price=delta">{{ visit.price_delta }}</div>
+                    </td>
+                    <td>
+                        {% for procedure in visit.procedures %}
+                            <div class="px-2 py-1 rounded-pill bg-light d-inline">{{ procedure }}</div>
+                        {% endfor %}
+                    </td>
+                    <td>{{ visit.status }}</td>
+                    <td>{{ visit.import_file }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <nav aria-label="Page navigation">
+        <div class="row justify-content-between align-items-center mt-4">
+            <div class="col-md-8">
+                <div class="row">
+                    <!-- Selected Totals Section -->
+                    <div class="col">
+                        <div class="bg-light px-3 border shadow"
+                             id="selected-totals-section"
+                             style="display: none">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <h5 class="me-2">{% trans "Total Selected" %}</h5>
+                                <div class="rounded-pill border-secondary px-2 py-1"
+                                     id="total-selected-count">{{ total_visits }} {% trans "Records" %}</div>
+                            </div>
+                            <h3 id="total-selected-amount">0</h3>
+                            <div class="row">
+                                <label class="col">
+                                    {% trans "Negative" %} <span id="negative-selected-delta">0</span>
+                                </label>
+                            </div>
+                            <div class="row">
+                                <label class="col">
+                                    {% trans "Positive" %} <span id="positive-selected-delta">0</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Generate Invoice Section -->
+                    <div class="col align-content-center">
+                        <div class="mx-2 algin-items-center"
+                             id="generate-invoice-section"
+                             style="display: none">
+                            <button class="btn btn-primary mx-auto" id="generate-invoice-button">{% trans "Generate Invoice" %}</button>
+                        </div>
+                    </div>
+                    <!-- Total Section -->
+                    <div class="col">
+                        <div class="bg-light p-3 rounded border shadow" id="total-section">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <h5 class="me-2">{% trans "Total" %}</h5>
+                                <div class="rounded-pill border-secondary px-2 py-1">{{ total_visits }} {% trans "Records" %}</div>
+                            </div>
+                            <h3>{{ total_amount }}</h3>
+                            <div class="row">
+                                <label class="col">{% trans "Negative" %} {{ negative_delta }}</label>
+                            </div>
+                            <div class="row">
+                                <label class="col">{% trans "Positive" %} {{ positive_delta }}</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Pagination and action buttons -->
+            <div class="col-md-4 text-end">
+                <ul class="pagination justify-content-end mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item me-2">
+                            <a class="page-link btn btn-secondary"
+                               href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1"
+                               aria-label="{% trans "First" %}">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                                <span class="sr-only">{% trans "First" %}</span>
+                            </a>
+                        </li>
+                        <li class="page-item me-2">
+                            <a class="page-link btn btn-secondary"
+                               href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}"
+                               aria-label="{% trans "Previous" %}">
+                                <span aria-hidden="true">&laquo;</span>
+                                <span class="sr-only">{% trans "Previous" %}</span>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled me-2">
+                            <a class="page-link btn btn-secondary"
+                               href="#"
+                               aria-label="{% trans "First" %}">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                                <span class="sr-only">{% trans "First" %}</span>
+                            </a>
+                        </li>
+                        <li class="page-item disabled me-2">
+                            <a class="page-link btn btn-secondary"
+                               href="#"
+                               aria-label="{% trans "Previous" %}">
+                                <span aria-hidden="true">&laquo;</span>
+                                <span class="sr-only">{% trans "Previous" %}</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                    <li class="page-item active me-2">
+                        <span class="btn btn-primary">{% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    {% if page_obj.has_next %}
+                        <li class="page-item me-2">
+                            <a class="page-link btn btn-secondary"
+                               href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}"
+                               aria-label="{% trans "Next" %}">
+                                <span aria-hidden="true">&raquo;</span>
+                                <span class="sr-only">{% trans "Next" %}</span>
+                            </a>
+                        </li>
+                        <li class="page-item me-2">
+                            <a class="page-link btn btn-secondary"
+                               href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}"
+                               aria-label="{% trans "Last" %}">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                                <span class="sr-only">{% trans "Last" %}</span>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled me-2">
+                            <a class="page-link btn btn-secondary"
+                               href="#"
+                               aria-label="{% trans "Next" %}">
+                                <span aria-hidden="true">&raquo;</span>
+                                <span class="sr-only">{% trans "Next" %}</span>
+                            </a>
+                        </li>
+                        <li class="page-item disabled me-2">
+                            <a class="page-link btn btn-secondary"
+                               href="#"
+                               aria-label="{% trans "Last" %}">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                                <span class="sr-only">{% trans "Last" %}</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% comment %} Modal Section {% endcomment %}
+    <div class="modal fade"
+         id="importModal"
+         tabindex="-1"
+         role="dialog"
+         aria-labelledby="exampleModalCenterTitle"
+         aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <form id="importForm"
+                      action="{% url 'visit' %}"
+                      method="post"
+                      enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLongTitle">{% trans "Import Files" %}</h5>
+                    </div>
+                    <div class="modal-body">
+                        <div class="col">
+                            <div class="form-group files color">
+                                <label>{% trans "Upload Your File" %}</label>
+                                <input type="file" class="form-control" name="files" multiple="">
+                            </div>
+                        </div>
+                        <div id="loadingIndicator" class="text-center my-2" style="display: none;">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>{% trans "import in progress..." %}</p>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end p-2">
+                        <button type="button" class="btn btn-secondary mx-2" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                        <button type="submit" class="btn btn-primary" id="save-button">{% trans "Save" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const generateInvoiceButton = document.getElementById('generate-invoice-button');
+            const selectedTotalsSection = document.getElementById('selected-totals-section');
+            const generateInvoiceSection = document.getElementById('generate-invoice-section');
+            const selectAllCheckbox = document.getElementById('select-all'); // Assuming you have a select all checkbox with id 'select-all'
+            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+
+            // Function to fetch visits data from API when "select all" is checked
+            function fetchAndUpdateVisitData() {
+                var queryParams = new URLSearchParams(window.location.search);
+                fetch('?' + queryParams.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    updateTotalsForSelectAll(data.visits); // Update totals using data from API response
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while fetching visit data');
+                });
+            }
+        
+            // Function to update totals when "select all" is checked
+            function updateTotalsForSelectAll(visits) {
+                let totalSelectedCount = visits.length; // Total count of selected visits
+                let totalSelectedAmount = 0;
+                let negativeSelectedDelta = 0;
+                let positiveSelectedDelta = 0;
+        
+                visits.forEach(visit => {
+                    const catalogPrice = parseFloat(visit.catalog_price); // Adjust with actual field or calculation
+                    const priceDelta = parseFloat(visit.price_delta); // Adjust with actual field or calculation
+        
+                    totalSelectedAmount += catalogPrice;
+                    if (priceDelta < 0) {
+                        negativeSelectedDelta += priceDelta;
+                    } else {
+                        positiveSelectedDelta += priceDelta;
+                    }
+                });
+        
+                updateSelectedTotalsUI(totalSelectedCount, totalSelectedAmount, negativeSelectedDelta, positiveSelectedDelta);
+            }
+        
+            // Function to update totals based on individual row selections
+            function updateTotalsForRowSelections() {
+                const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+                let totalSelectedCount = 0;
+                let totalSelectedAmount = 0;
+                let negativeSelectedDelta = 0;
+                let positiveSelectedDelta = 0;
+        
+                rowCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        totalSelectedCount++;
+            
+                        // Extract numerical values from data attributes
+                        const priceDelta = parseFloat(checkbox.getAttribute('data-price-delta').replace('€', '').trim()) || 0;
+                        const catalogPrice = parseFloat(checkbox.getAttribute('data-catalog-price').replace('€', '').trim()) || 0;
+            
+                        totalSelectedAmount += catalogPrice;
+                        if (priceDelta < 0) {
+                            negativeSelectedDelta += priceDelta;
+                        } else {
+                            positiveSelectedDelta += priceDelta;
+                        }
+                    }
+                });
+        
+                updateSelectedTotalsUI(totalSelectedCount, totalSelectedAmount, negativeSelectedDelta, positiveSelectedDelta);
+            }
+        
+            // Function to update selected totals UI
+            function updateSelectedTotalsUI(totalSelectedCount, totalSelectedAmount, negativeSelectedDelta, positiveSelectedDelta) {
+                document.getElementById('total-selected-count').textContent = `${totalSelectedCount} {% trans "Records" %}`;
+                document.getElementById('total-selected-amount').textContent = totalSelectedAmount.toFixed(2);
+                document.getElementById('negative-selected-delta').textContent = negativeSelectedDelta.toFixed(2);
+                document.getElementById('positive-selected-delta').textContent = positiveSelectedDelta.toFixed(2);
+        
+                if (totalSelectedCount > 0) {
+                    selectedTotalsSection.style.display = 'block';
+                    generateInvoiceSection.style.display = 'block';
+                } else {
+                    selectedTotalsSection.style.display = 'none';
+                    generateInvoiceSection.style.display = 'none';
+                }
+            }
+        
+            // Event listener for "select all" checkbox
+            selectAllCheckbox.addEventListener('change', function() {
+                const isChecked = selectAllCheckbox.checked;
+                if (isChecked) {
+                    fetchAndUpdateVisitData(); // Fetch visits data from API when "select all" is checked
+                } else {
+                    // Clear totals when "select all" is unchecked
+                    updateSelectedTotalsUI(0, 0, 0, 0);
+                }
+        
+                // Enable/disable individual checkboxes based on "select all" state
+                const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+                rowCheckboxes.forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                    checkbox.disabled = isChecked; // Disable checkboxes when "select all" is checked
+                });
+        
+                // Enable the "select all" checkbox regardless of its checked state
+                selectAllCheckbox.disabled = false;
+            });
+        
+            rowCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    updateTotalsForRowSelections();
+                });
+            });
+        
+            generateInvoiceButton.addEventListener('click', function () {
+                const selectedVisitIds = [];
+                const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+                rowCheckboxes.forEach(checkbox => {
+                    if (checkbox.checked) {
+                        selectedVisitIds.push(checkbox.value);
+                    }
+                });
+        
+                if (selectAllCheckbox.checked) {
+                    var queryParams = new URLSearchParams(window.location.search);
+                    url += '?' + queryParams.toString();
+                }
+                if (selectedVisitIds.length > 0 || selectAllCheckbox.checked) {
+                    fetch(url, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}',
+                        },
+                        body: JSON.stringify({ visit_ids: selectedVisitIds }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('{% trans "Status updated successfully" %}');
+                            location.reload(); // Reload the page to reflect changes
+                        } else {
+                            alert('{% trans "Failed to update status" %}');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('{% trans "An error occurred while updating status" %}');
+                    });
+                } else {
+                    alert('{% trans "No visits selected" %}');
+                }
+            });
+        
+            document.getElementById('importForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+                loadingIndicator.style.display = 'block';
+                const submitButton = document.getElementById('save-button');
+                submitButton.disabled = true;
+                const form = document.getElementById('importForm');
+                form.submit();
+            });
+        
+            // Initialize the totals on page load
+            updateSelectedTotalsUI(0, 0, 0, 0);
+        });
+        
+    </script>
+{% endblock content %}
